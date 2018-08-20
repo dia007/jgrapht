@@ -1,5 +1,6 @@
 package org.jgrapht.alg.interval;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -13,6 +14,15 @@ import org.jgrapht.alg.interval.KorteMoehringIntervalGraphRecognizer.PNode;
 import org.jgrapht.alg.interval.KorteMoehringIntervalGraphRecognizer.QNode;
 import org.jgrapht.alg.interval.KorteMoehringIntervalGraphRecognizer.QSectionNode;
 
+
+
+/**
+ * Updates the MPQ Trees according to templates 
+ * @author Suchanda Bhattacharyya (dia007)
+ * 
+ * 
+ *
+ */
 public  class MPQTreeUpdater {
     /**
      * Adds the vertex u to the leaf of the path
@@ -30,13 +40,17 @@ public  class MPQTreeUpdater {
     {
         int lastIndexofPath= path.size()-1;
         MPQTreeNode lastNodeInPath = path.get(lastIndexofPath);
-        HashMap<Integer, HashSet<V>> partitionedVertexSet = partitionVertexSet(u,graph, lastNodeInPath);
+        
+        
+        KorteMoehringIntervalGraphRecognizer<V, E> test = new KorteMoehringIntervalGraphRecognizer<>(graph);
+
 
         //check if lastnodeInPath is P or Q or leaf
 
-
+        
         if(lastNodeInPath.getClass()== Leaf.class) {
             //check if set B is empty
+            HashMap<Integer, HashSet<V>> partitionedVertexSet = partitionVertexSet(u,graph, lastNodeInPath);
 
             if(partitionedVertexSet.get(1).isEmpty()) {
 
@@ -46,13 +60,18 @@ public  class MPQTreeUpdater {
 
             else {
                 //transform the leaf containing A+B into a PNode containing A
-                PNode newPNode = new PNode( partitionedVertexSet.get(0));
+                
+                
+                PNode newPNode = test.new PNode( partitionedVertexSet.get(0));
 
 
                 //Create two leaves for PNode children, add the children to the PNode
+                
+                HashSet leafElements = new HashSet<>();
+                leafElements.add(u);
 
-                Leaf leaf1 = new Leaf(u);
-                Leaf leaf2 = new Leaf( partitionedVertexSet.get(1));
+                Leaf leaf1 = test.new Leaf(leafElements);
+                Leaf leaf2 = test.new Leaf( partitionedVertexSet.get(1));
                 //add children to the PNode
                 //need to implement the add child option
 
@@ -72,13 +91,20 @@ public  class MPQTreeUpdater {
 
         //Addition if the last node in path is the PNode
         else if (lastNodeInPath.getClass()== PNode.class) {
-
+            
             PNode tempPNode = (KorteMoehringIntervalGraphRecognizer<V, E>.PNode) lastNodeInPath;
+            HashMap<Integer, HashSet<V>> partitionedVertexSet = partitionVertexSet(u,graph, lastNodeInPath);
+
             if(partitionedVertexSet.get(1).isEmpty()) {
                 //swap P node containing A+B with P Node containing just A,since B is empty makes no change
                 //keep it the same, just add the new leaves there
-                Leaf newLeaf= new Leaf(u);
+                HashSet leafElements = new HashSet<>();
+                leafElements.add(u);
+                
+                Leaf newLeaf= test.new Leaf(leafElements);
                 tempPNode.addCurrentChild(newLeaf);
+                tempPNode.currentChild=newLeaf;
+                newLeaf.parent=tempPNode;
 
                 path.remove(lastIndexofPath);
                 path.add(tempPNode);
@@ -87,14 +113,16 @@ public  class MPQTreeUpdater {
             }else {
                 //update the previous PNode elements with elements in A
 
-                PNode newPNodeA= new PNode(partitionedVertexSet.get(0));
+                PNode newPNodeA= test.new PNode(partitionedVertexSet.get(0));
                 //create a new PNode and add the B set
 
                 PNode newPNodeB = tempPNode;
                 newPNodeB.elements.removeAll(partitionedVertexSet.get(0));
                 newPNodeA.addChild(newPNodeB);
-
-                Leaf newChildLeaf = new Leaf(u);
+                HashSet leafElements = new HashSet<>();
+                leafElements.add(u);
+                
+                Leaf newChildLeaf = test.new Leaf(leafElements);
                 newPNodeA.addCurrentChild(newChildLeaf);
 
                 path.remove(lastIndexofPath);
@@ -113,27 +141,33 @@ public  class MPQTreeUpdater {
 
         else if(lastNodeInPath.getClass()== QNode.class) {
 
-
+            //find what is the common set 
+            
+            
 
             //test if all sections contains A or not
 
             QNode currentQNode = (KorteMoehringIntervalGraphRecognizer<V, E>.QNode) lastNodeInPath ;
-            boolean containsA = allSectionsContainsElementSet(currentQNode, partitionedVertexSet.get(0));
+            HashSet commonElement = (HashSet) Graphs.neighborSetOf(graph, u);
+            boolean containsCommonElement = allSectionsContainsElementSet(currentQNode,commonElement);
+            
             //if containsA == true Q1, else Q2 (both the cases of Q2)
 
 
-            if(containsA) {
+            if(containsCommonElement) {
                 //Q1
 
                 //create a new PNode A 
-                PNode newElementPNode = new PNode(partitionedVertexSet.get(0));
+                PNode newElementPNode = test.new PNode(commonElement);
+                HashSet leafElements = new HashSet<>();
+                leafElements.add(u);
 
-                Leaf newLeaf = new Leaf(u);
+                Leaf newLeaf = test.new Leaf(leafElements);
                 newElementPNode.addChild(newLeaf);
                 newElementPNode.addChild(newLeaf);
 
 
-                QNode newChildQNode = extractQNodeElements(currentQNode,partitionedVertexSet.get(0) );
+                QNode newChildQNode = extractQNodeElements(currentQNode,commonElement );
                 newElementPNode.addChild(newChildQNode); 
 
 
@@ -146,21 +180,26 @@ public  class MPQTreeUpdater {
                 //TODO: implement the helper functions
 
                 //check if B is null
+                
+                
+                if(currentQNode.leftmostSection.elements==commonElement)
+                {
 
-                if(partitionedVertexSet.get(1).isEmpty()) {
-
-                    PNode newChildPNode = new PNode (null);
+                    PNode newChildPNode = test.new PNode (null);
 
                     //take the existing childsubtree of the QNode and add it to the PNode
                     newChildPNode.addChild(currentQNode.leftmostSection.child);
 
-
-                    Leaf newChildLeaf = new Leaf (u);
+                    HashSet leafElements = new HashSet<>();
+                    leafElements.add(u);
+                    Leaf newChildLeaf = test.new Leaf (leafElements);
                     newChildPNode.addCurrentChild(newChildLeaf);
 
 
 
                     currentQNode.leftmostSection.addChild(newChildPNode);
+                    
+                //    modifyAccordingToHelperTemplate(newChildPNode);
 
 
 
@@ -168,12 +207,13 @@ public  class MPQTreeUpdater {
 
                     //create a new QSection
 
-                    QSectionNode newQSectionNode = new QSectionNode(partitionedVertexSet.get(0));
+                    QSectionNode newQSectionNode = test.new QSectionNode(commonElement);
                     newQSectionNode.rightSibling=currentQNode.leftmostSection;
                     currentQNode.leftmostSection.leftSibling=newQSectionNode;
                     currentQNode.leftmostSection=newQSectionNode;
-
-                    Leaf newChildLeaf = new Leaf (u);
+                    HashSet leafElements = new HashSet<>();
+                    leafElements.add(u);
+                    Leaf newChildLeaf = test.new Leaf (leafElements);
                     currentQNode.leftmostSection.addChild(newChildLeaf);
 
                 }
@@ -187,6 +227,19 @@ public  class MPQTreeUpdater {
         
     }
     
+    /*private static PNode modifyAccordingToHelperTemplate(PNode pNode) {
+       
+        if(pNode.elements==null) {
+            for(MPQTreeNode currentNode =pNode.currentChild; currentNode. ;)
+            
+        }
+        else {
+            return pNode;
+        }
+        return pNode;
+        
+    }
+*/
     /**
      * Removes the given elementset from each section of the given qNode
      * 
@@ -215,29 +268,32 @@ public  class MPQTreeUpdater {
      * @return true if all sections contain the elementSet, else false
      */
 
-    public static  <V> boolean allSectionsContainsElementSet(QNode newQNode, HashSet<V> elements) {
+    public static  <V> boolean allSectionsContainsElementSet(QNode newQNode, HashSet element) {
         //traverse all sections of the QNode and check if every section contains an A
         //should there be a section identifier
 
         QSectionNode leftSection = newQNode.leftmostSection;
         QSectionNode rightSection = newQNode.rightmostSection;
-        boolean isContained= false;
-
-
+        boolean isContained = false;
+        
+        
+        
+        
         while   (leftSection != rightSection) {
-
-            if (leftSection.elements.contains(elements) && rightSection.elements.contains(elements)) {
-
+            
+            
+            if(leftSection.elements.contains(element) && rightSection.elements.contains(element))
+            {
                 leftSection=leftSection.rightSibling;
-                rightSection = rightSection.leftSibling;
-                isContained= true;
-
-
+                rightSection=rightSection.leftSibling;
+                isContained = true;
             }
-
             else {
-                isContained = false;
+                isContained= false;
+                break;
+                
             }
+            
 
 
         }
@@ -317,27 +373,29 @@ public  class MPQTreeUpdater {
         int minIndex = path.indexOf(nSmall);
         int currentIndex = path.indexOf(nSmall);
         int maxIndex = path.indexOf(nBig);
-        //   while(currentIndex != maxIndex )  
+        KorteMoehringIntervalGraphRecognizer<V, E> test = new KorteMoehringIntervalGraphRecognizer<>(graph);
+
 
         for(int i = currentIndex; i<=maxIndex; i++){
 
             MPQTreeNode currentNode = path.get(currentIndex);
             //split the vertex initially
-            HashMap<Integer, HashSet<V>> partitionedVertexSet  = partitionVertexSet(u, graph, currentNode);
 
 
             //CHECK the type of node
             if(currentNode.getClass()==Leaf.class) {
+                HashMap<Integer, HashSet<V>> partitionedVertexSet  = partitionVertexSet(u, graph, currentNode);
 
 
                 if(currentIndex==minIndex) {
 
                     //create a Qnode with 2 section nodes 
 
-                    QSectionNode newQSection1 = new QSectionNode(partitionedVertexSet.get(0));   
-                    QSectionNode newQSection2 = new QSectionNode(partitionedVertexSet.get(0));
+                    QSectionNode newQSection2 = test.new QSectionNode(partitionedVertexSet.get(0));
+                    QSectionNode newQSection1 = test.new QSectionNode(partitionedVertexSet.get(0));   
 
-                    QNode newElementQNode = new QNode(newQSection1);
+
+                    QNode newElementQNode = test.new QNode(newQSection1);
                     //     newElementQNode.addSection(newQSection2);
                     newElementQNode.leftmostSection=newQSection1;
                     newElementQNode.rightmostSection=newQSection2;
@@ -347,9 +405,10 @@ public  class MPQTreeUpdater {
 
                     newQSection2.leftSibling=newQSection1;
 
-
-                    Leaf leftSectionChildLeaf = new Leaf(u);
-                    Leaf righSectiontChildLeaf = new Leaf(partitionedVertexSet.get(1));
+                    HashSet leafElements = new HashSet<>();
+                    leafElements.add(u);
+                    Leaf leftSectionChildLeaf = test.new Leaf(leafElements);
+                    Leaf righSectiontChildLeaf = test.new Leaf(partitionedVertexSet.get(1));
 
                     newQSection1.addChild(leftSectionChildLeaf);
 
@@ -370,14 +429,15 @@ public  class MPQTreeUpdater {
 
             else if (path.get(currentIndex).getClass()==PNode.class) {
                 PNode tempPNode=(KorteMoehringIntervalGraphRecognizer<V, E>.PNode) path.get(currentIndex);
+                HashMap<Integer, HashSet<V>> partitionedVertexSet  = partitionVertexSet(u, graph, currentNode);
 
 
                 if(currentIndex==minIndex) {
 
-                    QSectionNode newQSectionNode1 = new QSectionNode(partitionedVertexSet.get(0));                  
-                    QSectionNode newQSectionNode2 = new QSectionNode(partitionedVertexSet.get(0));
+                    QSectionNode newQSectionNode1 = test.new QSectionNode(partitionedVertexSet.get(0));                  
+                    QSectionNode newQSectionNode2 = test.new QSectionNode(partitionedVertexSet.get(0));
 
-                    QNode newQNode = new QNode(newQSectionNode1);
+                    QNode newQNode = test.new QNode(newQSectionNode1);
                     //   newQNode.addSection(newQSectionNode2);
 
                     newQNode.leftmostSection=newQSectionNode1;
@@ -386,8 +446,9 @@ public  class MPQTreeUpdater {
 
                     newQSectionNode1.rightSibling=newQSectionNode2;
                     newQSectionNode2.leftSibling=newQSectionNode1;
-
-                    Leaf leftChildLeaf = new Leaf(u);
+                    HashSet leafElements = new HashSet<>();
+                    leafElements.add(u);
+                    Leaf leftChildLeaf = test.new Leaf(leafElements);
 
                     PNode rightChildPNode = tempPNode;
                     rightChildPNode.elements.remove(partitionedVertexSet.get(0));
@@ -408,7 +469,7 @@ public  class MPQTreeUpdater {
                 }
                 else {
                     //TODO: implement helper classes here
-                    QSectionNode rightMostQSection = new QSectionNode(tempPNode.elements);
+                    QSectionNode rightMostQSection = test.new QSectionNode(tempPNode.elements);
                     PNode rightmostQSectionChildPNode = tempPNode;
                     rightmostQSectionChildPNode.elements.removeAll(tempPNode.elements);
                     rightMostQSection.addChild(rightmostQSectionChildPNode);
@@ -460,6 +521,7 @@ public  class MPQTreeUpdater {
             else if (path.get(currentIndex).getClass()==QNode.class) {
 
                 QNode tempQNode = (KorteMoehringIntervalGraphRecognizer<V, E>.QNode) path.get(currentIndex);
+                HashSet commonElements = (HashSet) Graphs.neighborSetOf(graph, u);
 
                 //first check:current node = NSmall, second check A is present in everything
 
@@ -468,21 +530,22 @@ public  class MPQTreeUpdater {
 
                     //second check A is present in everything
 
-                    if(allSectionsContainsElementSet(tempQNode, partitionedVertexSet.get(0))) {
+                    if(allSectionsContainsElementSet(tempQNode, commonElements)) {
                         //create Qnode1
 
-                        QSectionNode rightMostSection = new QSectionNode(partitionedVertexSet.get(0));
-                        QSectionNode leftMostSection = new QSectionNode(partitionedVertexSet.get(0));
+                        QSectionNode rightMostSection = test.new QSectionNode(commonElements);
+                        QSectionNode leftMostSection = test.new QSectionNode(commonElements);
 
-                        QNode newQNodeA = new QNode(leftMostSection);
+                        QNode newQNodeA = test.new QNode(leftMostSection);
                         //need to add rightmost section in newQNodeA
                         newQNodeA.leftmostSection=leftMostSection;
                         newQNodeA.rightmostSection=rightMostSection;
 
                         leftMostSection.rightSibling=rightMostSection;
                         rightMostSection.leftSibling=leftMostSection;
-
-                        Leaf newChild = new Leaf(u);
+                        HashSet leafElements = new HashSet<>();
+                        leafElements.add(u);
+                        Leaf newChild = test.new Leaf(leafElements);
 
                         leftMostSection.addChild(newChild);
 
@@ -497,7 +560,7 @@ public  class MPQTreeUpdater {
                         for(QSectionNode currentSection = newQNodeB.leftmostSection; currentSection.rightSibling != null; currentSection = currentSection.rightSibling ) {
 
 
-                            currentSection.elements.removeAll(partitionedVertexSet.get(0));
+                            currentSection.elements.removeAll(commonElements);
 
                         }
 
@@ -511,12 +574,13 @@ public  class MPQTreeUpdater {
                     }else {
 
 
-                        QSectionNode qSectionNode= new QSectionNode(partitionedVertexSet.get(0));
+                        QSectionNode qSectionNode= test.new QSectionNode(commonElements);
                         tempQNode.leftmostSection.leftSibling=qSectionNode;
                         qSectionNode.rightSibling=tempQNode.leftmostSection;
                         tempQNode.leftmostSection=qSectionNode;
-
-                        Leaf newChild = new Leaf(u); 
+                        HashSet leafElements = new HashSet<>();
+                        leafElements.add(u);
+                        Leaf newChild = test.new Leaf(leafElements); 
                         tempQNode.addChild(newChild);
 
 
@@ -531,7 +595,7 @@ public  class MPQTreeUpdater {
                     for(QSectionNode currentSection = tempChildQNode.leftmostSection; currentSection.rightSibling != null; currentSection = currentSection.rightSibling ) {
                         if(currentSection==tempChildQNode.leftmostSection) {
 
-                            currentSection.elements.addAll(partitionedVertexSet.get(0));
+                            currentSection.elements.addAll(commonElements);
                         }
 
                         else {
